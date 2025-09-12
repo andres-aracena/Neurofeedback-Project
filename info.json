@@ -1,0 +1,7 @@
+{
+  "ratio": "Muestra la evolución temporal de la relación Theta/Gamma como mediana entre los 8 canales.",
+  "raw": "Señal EEG cruda de los 8 canales. Cada línea corresponde a un canal con desplazamiento vertical.",
+  "filt": "Señal del canal seleccionado filtrada en bandas Theta (verde) y Gamma (rojo).",
+  "env": "Amplitud media de las envolventes en bandas Theta y Gamma para cada canal.",
+  "wavelet": "Mapa tiempo-frecuencia usando transformada wavelet continua (CWT). Permite ver la energía por frecuencia en el canal seleccionado."
+}

@@ -26,7 +26,7 @@ nyquist = 0.5 * fs
 epsilon = 1e-10  # para evitar división por cero
 
 # === FUNCIONES DE FILTRADO ===
-def bandpass_filter_sos(data, lowcut, highcut, fs, order=8):
+def bandpass_filter_sos(data, lowcut, highcut, fs, order=6):
     sos = butter(order, [lowcut / nyquist, highcut / nyquist], btype='band', output='sos')
     return sosfiltfilt(sos, data)
 
@@ -105,7 +105,7 @@ def update(frame):
         gamma_powers.append(gamma_power)
 
         # Actualizar señal solo para canal 1
-        if i == 0:
+        if i == 7:
             line_raw.set_ydata(raw)
             line_theta.set_ydata(theta)
             line_gamma.set_ydata(gamma)

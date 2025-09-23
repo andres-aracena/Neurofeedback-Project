@@ -6,7 +6,49 @@ from PyQt5 import QtWidgets, QtCore
 from collections import deque
 
 # -------------------------
-# Helper: add help button via QGraphicsProxyWidget
+# Ventana de configuración inicial
+# -------------------------
+class ConfigDialog(QtWidgets.QDialog):
+    def __init__(self, fs_values, n_ch_values, win_sec_values, mode_values,
+                 default_fs=250, default_n_ch=8, default_win=10, default_mode="wavelet"):
+        super().__init__()
+        self.setWindowTitle("Configuración de sesión")
+        self.setStyleSheet("background-color: #111218; color: white; font-size:24px;")
+        layout = QtWidgets.QFormLayout(self)
+
+        # ComboBoxes
+        self.fs_cb = QtWidgets.QComboBox(); [self.fs_cb.addItem(str(v)) for v in fs_values]
+        self.fs_cb.setCurrentText(str(default_fs))
+
+        self.nch_cb = QtWidgets.QComboBox(); [self.nch_cb.addItem(str(v)) for v in n_ch_values]
+        self.nch_cb.setCurrentText(str(default_n_ch))
+
+        self.win_cb = QtWidgets.QComboBox(); [self.win_cb.addItem(str(v)) for v in win_sec_values]
+        self.win_cb.setCurrentText(str(default_win))
+
+        self.mode_cb = QtWidgets.QComboBox(); [self.mode_cb.addItem(v) for v in mode_values]
+        self.mode_cb.setCurrentText(default_mode)
+
+        layout.addRow("Frecuencia de muestreo (Hz):", self.fs_cb)
+        layout.addRow("Número de canales:", self.nch_cb)
+        layout.addRow("Ventana (s):", self.win_cb)
+        layout.addRow("Modo de procesamiento:", self.mode_cb)
+
+        # Botones
+        btns = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        btns.accepted.connect(self.accept); btns.rejected.connect(self.reject)
+        layout.addRow(btns)
+
+    def get_config(self):
+        return {
+            "FS": int(self.fs_cb.currentText()),
+            "N_CH": int(self.nch_cb.currentText()),
+            "WIN_SEC": int(self.win_cb.currentText()),
+            "MODE": self.mode_cb.currentText()
+        }
+
+# -------------------------
+# Helper: botón de ayuda en cada plot
 # -------------------------
 def add_help_button(plot_item, description):
     """
@@ -20,7 +62,7 @@ def add_help_button(plot_item, description):
         QToolButton {
             background-color: #333;
             color: white;
-            font-size: 10px;
+            font-size: 12px;
             border-radius: 8px;
             padding: 2px;
         }
@@ -80,11 +122,10 @@ def add_help_button(plot_item, description):
     # regresar proxy por si queremos manipularlo (no necesario)
     return proxy
 
-
 # -------------------------
 # create_ui
 # -------------------------
-def create_ui(N_CH, WIN_SEC, OFFSET, FS=250):
+def create_ui(N_CH, WIN_SEC, OFFSET, FS):
     """
     Crea la interfaz y devuelve (main_widget, ui_dict).
 
@@ -135,7 +176,7 @@ def create_ui(N_CH, WIN_SEC, OFFSET, FS=250):
     # graphics layout
     graph_area = pg.GraphicsLayoutWidget()
     vlayout.addWidget(graph_area)
-    main.resize(2000, 1000)
+    main.resize(2000, 1500)
 
     # procesamiento vs display: (processing debe usar 6s; aquí mostramos WIN_SEC s)
     disp_sec = WIN_SEC
@@ -149,6 +190,7 @@ def create_ui(N_CH, WIN_SEC, OFFSET, FS=250):
     p_ratio.setTitle("Relación Theta/Gamma (Mediana 8 canales)")
     p_ratio.setLabel('bottom', 'Tiempo', units='s')
     p_ratio.setLabel('left', 'Relación')
+    p_ratio.setYRange(0, 1)
     p_ratio.showGrid(x=True, y=True)
     ratio_t, ratio_y = [], []
     curve_ratio = p_ratio.plot([], [], pen=pg.mkPen('c', width=2))
@@ -228,9 +270,29 @@ def create_ui(N_CH, WIN_SEC, OFFSET, FS=250):
         "ratio_t": deque(maxlen=30 * 1000 // 100), "ratio_y": deque(maxlen=30 * 1000 // 100),
         "curves_raw": curves_raw, "curve_theta": curve_theta, "curve_gamma": curve_gamma,
         "bar_theta": bar_theta, "bar_gamma": bar_gamma,
-        "p_raw": p_raw, "p_filt": p_filt, "p_cwt": p_cwt,
+        "p_raw": p_raw, "p_filt": p_filt, "p_cwt": p_cwt, "p_env": p_env,
         "img_cwt": img_cwt, "cbar": cbar, "freqs": freqs, "lut": lut, "t_cwt": t_cwt,
         "FS": FS, "OFFSET": OFFSET, "disp_sec": disp_sec
     }
 
     return main, ui
+
+# -------------------------
+# Helpers extra
+# -------------------------
+def connect_channel_controls(ui, N_CH, on_change):
+    """
+    Conecta botones prev/next a una función de cambio de canal.
+    on_change recibe el nuevo índice.
+    """
+    ch_sel = {"idx": 0}  # mutable
+
+    def set_channel(idx):
+        ch_sel["idx"] = idx % N_CH
+        ui['lbl_channel'].setText(f"Canal {ch_sel['idx']+1}")
+        on_change(ch_sel["idx"])
+
+    ui['btn_prev'].clicked.connect(lambda: set_channel(ch_sel["idx"]-1))
+    ui['btn_next'].clicked.connect(lambda: set_channel(ch_sel["idx"]+1))
+
+    return ch_sel

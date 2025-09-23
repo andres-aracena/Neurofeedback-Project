@@ -44,7 +44,7 @@ def envelope(x):
 # =========================
 BoardShim.enable_dev_board_logger()
 params = BrainFlowInputParams()
-params.serial_port = "COM3"   # <--- CAMBIA esto al puerto real de tu dongle
+params.serial_port = "COM4"   # <--- CAMBIA esto al puerto real de tu dongle
 
 board = BoardShim(BoardIds.CYTON_BOARD.value, params)
 board.prepare_session()

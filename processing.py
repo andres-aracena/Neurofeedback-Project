@@ -15,7 +15,6 @@ def compute_wavelet(raw_win, fs, freqs, wavelet='cmor1.5-1.0'):
     """
     scales = pywt.central_frequency(wavelet) * fs / freqs
     coeffs, _ = pywt.cwt(raw_win, scales, wavelet, sampling_period=1/fs)
-
     # Potencia instantánea
     power = np.abs(coeffs) ** 2  # µV²
 

@@ -301,7 +301,7 @@ class CorsiGame(BaseGame):
     def verify_sequence_and_prepare_feedback(self):
         now = pygame.time.get_ticks()
         if self.user_sequence == self.sequence:
-            bonus = 10 + (5 if self.brain_ratio > 0.2 else 0) # Threshold
+            bonus = 10 + (5 if self.brain_ratio > 0.5 else 0) # Threshold
             self.points += bonus
             self.level += 1
             self.feedback_color = (0,255,136)

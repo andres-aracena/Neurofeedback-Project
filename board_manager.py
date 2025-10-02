@@ -3,7 +3,7 @@ import numpy as np
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
 
 
-def init_board(use_synthetic=False, serial_port="COM4"):
+def init_board(use_synthetic=True, serial_port="COM4"):
     """
     Inicializa la board:
       - use_synthetic=True → usa señal artificial (Synthetic Board).

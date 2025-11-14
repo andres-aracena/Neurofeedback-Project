@@ -200,16 +200,14 @@ def create_ui(N_CH, WIN_SEC, OFFSET, FS):
     # Gráfico Señales crudas
     # =========================
     p_raw = graph_area.addPlot(row=1, col=0)
-    p_raw.setTitle("EEG Crudo (8 canales)")
+    p_raw.setTitle("EEG Crudo (Canal seleccionado)")
     p_raw.setLabel('bottom', 'Tiempo', units='s')
-    yticks = [(i * OFFSET, f"Canal {i + 1}") for i in range(N_CH)]
-    p_raw.getAxis('left').setTicks([yticks])
+    p_raw.setLabel('left', 'Amplitud (µV)')
     p_raw.showGrid(x=True, y=True)
-    t_axis = np.linspace(-WIN_SEC, 0, WIN_SEC*250)
-    curves_raw = [
-        p_raw.plot(t_axis, np.zeros(WIN_SEC*250), pen=pg.mkPen((i*30, 200, 120), width=1))
-        for i in range(N_CH)
-    ]
+
+    # Solo una curva para el canal seleccionado
+    t_axis = np.linspace(-WIN_SEC, 0, WIN_SEC * FS)
+    curve_raw = p_raw.plot(t_axis, np.zeros(WIN_SEC * FS), pen=pg.mkPen('#99FF00', width=1))
     add_help_button(p_raw, INFO["raw"])
 
     # =========================
@@ -268,7 +266,7 @@ def create_ui(N_CH, WIN_SEC, OFFSET, FS):
         "btn_prev": btn_prev, "btn_next": btn_next, "lbl_channel": lbl_channel,
         "p_ratio": p_ratio, "curve_ratio": curve_ratio,
         "ratio_t": deque(maxlen=30 * 1000 // 100), "ratio_y": deque(maxlen=30 * 1000 // 100),
-        "curves_raw": curves_raw, "curve_theta": curve_theta, "curve_gamma": curve_gamma,
+        "curve_raw": curve_raw, "curve_theta": curve_theta, "curve_gamma": curve_gamma,
         "bar_theta": bar_theta, "bar_gamma": bar_gamma,
         "p_raw": p_raw, "p_filt": p_filt, "p_cwt": p_cwt, "p_env": p_env,
         "img_cwt": img_cwt, "cbar": cbar, "freqs": freqs, "lut": lut, "t_cwt": t_cwt,

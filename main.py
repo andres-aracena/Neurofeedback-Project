@@ -64,7 +64,7 @@ connect_channel_controls(ui, N_CH, lambda new_idx: ch_sel.update(idx=new_idx))
 # =========================
 # Inicializar juego Corsi
 # =========================
-game = CorsiGame(grid_size=3, sequence_len=5)
+game = CorsiGame(grid_size=3)
 
 # =========================
 # Update loop

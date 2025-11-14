@@ -56,19 +56,20 @@ def update_loop_offline(buffers, fs, theta_band, gamma_band, eps,
                         ui, ch_idx, win_sec, offset, mode, simulated_time):
     """
     Versión offline de update_loop que replica EXACTAMENTE el comportamiento
-    del procesamiento en tiempo real pero usando tiempo simulado
+    del procesamiento en tiempo real
     """
-    # Eje temporal basado en tiempo simulado
-    t_axis = np.linspace(simulated_time - win_sec, simulated_time, len(buffers[0]))
+    # CRÍTICO: Usar el mismo cálculo de eje temporal que en tiempo real
+    t_axis = np.linspace(-win_sec, 0, win_sec * fs)
 
     # Parámetros de frecuencia para wavelet (deben coincidir con los de plotting.py)
-    freqs = np.linspace(1, 100, 100)  # Mismo que en create_ui
+    freqs = ui['freqs']  # Usar las mismas frecuencias que ya están en la UI
     theta_mask = (freqs >= theta_band[0]) & (freqs <= theta_band[1])
     gamma_mask = (freqs >= gamma_band[0]) & (freqs <= gamma_band[1])
 
     # --- 1) Señales crudas ---
     for i, curve in enumerate(ui['curves_raw']):
-        sig = np.array(buffers[i])
+        # CRÍTICO: Usar solo los últimos win_sec * fs muestras, igual que en tiempo real
+        sig = np.asarray(buffers[i])[-win_sec * fs:]
         curve.setData(t_axis, sig + i * offset)
 
     # Resultados agregados
@@ -76,19 +77,23 @@ def update_loop_offline(buffers, fs, theta_band, gamma_band, eps,
 
     # --- Procesar cada canal ---
     for i in range(len(buffers)):
-        raw_win = np.array(buffers[i])
+        # CRÍTICO: Usar solo los últimos win_sec * fs muestras
+        raw_win = np.asarray(buffers[i])[-win_sec * fs:]
 
         # Solo procesar si tenemos datos suficientes
-        if len(raw_win) < win_sec * fs * 0.8:  # Esperar hasta tener al menos 80% de ventana
+        if len(raw_win) < win_sec * fs * 0.7:
             theta_pows.append(0.0)
             gamma_pows.append(0.0)
-            ratios.append(0.5)  # Valor neutral
+            ratios.append(0.5)
             continue
 
         raw_win = preprocess_signal(raw_win, fs=fs)
 
+        # --- CWT + potencias (IDÉNTICO a tiempo real) ---
+        power_norm = compute_wavelet(raw_win, fs, freqs)
+
         if mode == 'butterworth':
-            # Ganancia de banda
+            # Ganancia de banda calculada aquí (más seguro que pasarla como arg)
             gdb_theta = check_bandpass_gain(*theta_band, fs=fs)
             gdb_gamma = check_bandpass_gain(*gamma_band, fs=fs)
 
@@ -104,14 +109,13 @@ def update_loop_offline(buffers, fs, theta_band, gamma_band, eps,
             theta_env = envelope(theta_filt)
             gamma_env = envelope(gamma_filt)
 
-            # Potencias (usando ventana completa)
+            # Potencias
             theta_power = np.mean(theta_env ** 2)
             gamma_power = np.mean(gamma_env ** 2)
 
             ui["p_filt"].setLabel('left', 'Amplitud (µV)')
 
         else:  # === mode == 'wavelet' ===
-            power_norm = compute_wavelet(raw_win, fs, freqs)
             theta_env = np.sqrt(np.mean(power_norm[theta_mask, :], axis=0))
             gamma_env = np.sqrt(np.mean(power_norm[gamma_mask, :], axis=0))
 
@@ -119,12 +123,13 @@ def update_loop_offline(buffers, fs, theta_band, gamma_band, eps,
             gamma_power = np.mean(gamma_env ** 2)
 
             ui["p_filt"].setLabel('left', 'Amplitud Media (µV)')
+            ui['p_env'].setTitle("Potencia por canal (Theta / Gamma)")
+            ui['p_env'].setLabel('left', 'Potencia Instantanea (µV²)')
 
         # Guardar para barras y ratio
         theta_pows.append(theta_power)
         gamma_pows.append(gamma_power)
-        ratio_val = compute_tg_ratio(theta_power, gamma_power, eps)
-        ratios.append(ratio_val)
+        ratios.append(compute_tg_ratio(theta_power, gamma_power, eps))
 
         # --- Señal filtrada del canal seleccionado ---
         if i == ch_idx:
@@ -136,20 +141,36 @@ def update_loop_offline(buffers, fs, theta_band, gamma_band, eps,
                 ui['curve_theta'].setData(t_axis, theta_env)
                 ui['curve_gamma'].setData(t_axis, gamma_env)
 
-            # Espectrograma wavelet
-            if mode == 'wavelet':
-                spec_db = 10 * np.log10(np.clip(power_norm.T, 1e-18, None)).astype(np.float32)
-                ui['p_cwt'].setTitle(f"Espectrograma Wavelet (Canal {ch_idx + 1})")
-                update_wavelet_plot(ui, spec_db, freqs, win_sec)
+            # Espectrograma en dB
+            spec_db = 10 * np.log10(np.clip(power_norm.T, 1e-18, None)).astype(np.float32)
+            ui['p_cwt'].setTitle(f"Espectrograma Wavelet (Canal {ch_idx + 1})")
+            update_wavelet_plot(ui, spec_db, freqs, win_sec)
 
-    # --- 2) Barras de potencia ---
+    # --- Barras ---
     ui['bar_theta'].setOpts(height=np.array(theta_pows))
     ui['bar_gamma'].setOpts(height=np.array(gamma_pows))
 
-    # --- 3) Ratio global ---
+    # --- Ratio global ---
     current_ratio = np.median(ratios)
 
-    # Actualizar buffer de ratio (igual que en tiempo real)
+    # --- DIAGNÓSTICO MEJORADO ---
+    print(f"\n=== DIAGNÓSTICO @ {simulated_time:.2f}s ===")
+    print(f"Ventana usada: {win_sec}s = {win_sec * fs} muestras")
+    print(f"Muestras en buffer: {[len(buffers[i]) for i in range(len(buffers))]}")
+    print(f"Muestras procesadas: {[len(np.asarray(buffers[i])[-win_sec * fs:]) for i in range(len(buffers))]}")
+
+    for i in range(len(buffers)):
+        if i < len(theta_pows) and i < len(gamma_pows):
+            actual_ratio = compute_tg_ratio(theta_pows[i], gamma_pows[i], eps)
+            status = "INCLUIDO" if not np.isnan(actual_ratio) else "EXCLUIDO (NaN)"
+            print(
+                f"Canal {i + 1} ({status}): Theta={theta_pows[i]:.4f}, Gamma={gamma_pows[i]:.4f}, Ratio={actual_ratio:.4f}")
+
+    print(f"Todos los ratios: {[f'{r:.4f}' for r in ratios]}")
+    print(f"Ratio final (mediana): {current_ratio:.4f}")
+    print("=" * 60)
+
+    # Actualizar buffer de ratio con tiempo simulado
     ui['ratio_t'].append(simulated_time)
     ui['ratio_y'].append(current_ratio)
 
@@ -188,7 +209,7 @@ def main():
     connect_channel_controls(ui, player.n_ch, lambda new_idx: ch_sel.update(idx=new_idx))
 
     # Juego Corsi
-    game = CorsiGame(grid_size=3, sequence_len=5)
+    game = CorsiGame(grid_size=3)
 
     # Timer para updates
     timer = QtCore.QTimer()

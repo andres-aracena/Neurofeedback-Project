@@ -59,13 +59,11 @@ def update_wavelet_plot(ui, spec_db, freqs, win_sec):
 # =========================
 # Update Loop principal
 # =========================
-def update_loop(buffers, fs, theta_band, gamma_band,
-                 eps, ui, t0, ch_sel, win_sec, offset,
-                 mode='wavelet'):
+def update_loop(buffers, fs, theta_band, gamma_band, eps, ui, t0, ch_sel, win_sec, offset, mode='wavelet'):
     """
     Actualiza todas las gráficas en tiempo real:
       1) Ratio Theta/Gamma global
-      2) Señales crudas (N_CH)
+      2) Señal crudas (canal seleccionado)
       3) Señal filtrada o envolvente wavelet (canal seleccionado)
       4) Espectrograma wavelet (canal seleccionado)
       5) Potencia media de bandas (barras)
@@ -77,10 +75,27 @@ def update_loop(buffers, fs, theta_band, gamma_band,
     theta_mask = (freqs >= theta_band[0]) & (freqs <= theta_band[1])
     gamma_mask = (freqs >= gamma_band[0]) & (freqs <= gamma_band[1])
 
-    # --- 2) Señales crudas ---
-    for i, curve in enumerate(ui['curves_raw']):
-        sig = np.asarray(buffers[i])[-win_sec * fs:]
-        curve.setData(t_axis, sig + i * offset)
+    # --- 2) Señal cruda del canal seleccionado con ajuste de rango Y ---
+    sig = np.asarray(buffers[ch_sel])[-win_sec * fs:]
+    ui['curve_raw'].setData(t_axis, sig)
+
+    # Calcular márgenes automáticamente (MODIFICADO)
+    if len(sig) > 0:
+        y_min = np.min(sig)
+        y_max = np.max(sig)
+        y_range = y_max - y_min
+
+        # Agregar margen del 20% por arriba y por abajo
+        margin = y_range * 0.2
+        # Si la señal es muy plana, usar un margen mínimo
+        if margin < 10:  # margen mínimo de 10 µV
+            margin = 10
+
+        y_min_with_margin = y_min - margin
+        y_max_with_margin = y_max + margin
+
+        # Aplicar el rango Y con márgenes
+        ui['p_raw'].setYRange(y_min_with_margin, y_max_with_margin)
 
     # Resultados agregados
     theta_pows, gamma_pows, ratios = [], [], []

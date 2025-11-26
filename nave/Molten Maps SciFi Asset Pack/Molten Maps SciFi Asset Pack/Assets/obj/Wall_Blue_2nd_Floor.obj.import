@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://b4ybsgkibl24e"
+path="res://.godot/imported/Wall_Blue_2nd_Floor.obj-17f4dbf9f20a6aa6d14d24dce8c1049f.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Wall_Blue_2nd_Floor.obj-17f4dbf9f20a6aa6d14d24dce8c1049f.mesh"]
+
+source_file="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/obj/Wall_Blue_2nd_Floor.obj"
+dest_files=["res://.godot/imported/Wall_Blue_2nd_Floor.obj-17f4dbf9f20a6aa6d14d24dce8c1049f.mesh", "res://.godot/imported/Wall_Blue_2nd_Floor.obj-17f4dbf9f20a6aa6d14d24dce8c1049f.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

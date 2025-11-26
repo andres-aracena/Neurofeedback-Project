@@ -1,0 +1,146 @@
+[gd_scene load_steps=28 format=3 uid="uid://bkd2fgeg5wks1"]
+
+[ext_resource type="PackedScene" uid="uid://b607c7f3xtmx7" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Wall_With_Door_Red.glb" id="1_vxl6d"]
+[ext_resource type="PackedScene" uid="uid://hum2dtg8tmwd" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Wall_With_Door_Orange.glb" id="2_eski5"]
+[ext_resource type="PackedScene" uid="uid://b0v5tg3dv8ofl" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Wall_Red_2nd_Floor.glb" id="3_pdf00"]
+[ext_resource type="PackedScene" uid="uid://cdadndrxmv5by" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Wall_Red.glb" id="4_a6gra"]
+[ext_resource type="PackedScene" uid="uid://cmfbka0lb12av" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Wall_Pipe.glb" id="5_dwqlq"]
+[ext_resource type="PackedScene" uid="uid://dua4caspk4h64" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Wall_Light_White.glb" id="6_15c7i"]
+[ext_resource type="PackedScene" uid="uid://cirgxuimw7db0" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Wall_Glass_Blue.glb" id="7_xpeyw"]
+[ext_resource type="PackedScene" uid="uid://co4uukfe1d6bu" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Floor_Metal_Square.glb" id="8_dpmuy"]
+[ext_resource type="PackedScene" uid="uid://cni0mmksxxr1v" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Floor_Metal_Square_Grate.glb" id="9_yww54"]
+[ext_resource type="ArrayMesh" uid="uid://dn1o4mdy83j4d" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/obj/Floor_Metal_Square.obj" id="10_j75vh"]
+[ext_resource type="PackedScene" uid="uid://da8g2jtxpu026" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Floor_Mid_Path.glb" id="11_rrpoi"]
+[ext_resource type="PackedScene" uid="uid://cowmv7kdgtgo3" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Floor_Mid_Path_Corner_1.glb" id="12_34fux"]
+[ext_resource type="PackedScene" uid="uid://bm51g1blq2ok5" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Floor_Mid_Path_Corner_2.glb" id="13_ppv7d"]
+[ext_resource type="PackedScene" uid="uid://bi5ibvey2buq7" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Floor_Tile_Carpet_Blue.glb" id="14_naet1"]
+[ext_resource type="PackedScene" uid="uid://doqrbnui8iujv" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/BioMonitor_Blue.glb" id="15_6qlrc"]
+[ext_resource type="PackedScene" uid="uid://cjt6hh0c03fi" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Battery_Green.glb" id="16_shobf"]
+[ext_resource type="PackedScene" uid="uid://d2jfyke6xhgrp" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/End_Table.glb" id="17_lb1cv"]
+[ext_resource type="PackedScene" uid="uid://cn63ywohns75b" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Floor_Lamp.glb" id="18_2h37t"]
+[ext_resource type="PackedScene" uid="uid://d4iq1ar2dbywe" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Generator_Pile_Small.glb" id="19_adp8l"]
+[ext_resource type="Script" uid="uid://ghcdv06yt0r" path="res://player.gd" id="20_dvnpp"]
+
+[sub_resource type="WorldBoundaryShape3D" id="WorldBoundaryShape3D_getpj"]
+
+[sub_resource type="MultiMesh" id="MultiMesh_cegan"]
+use_colors = true
+custom_aabb = AABB(1, 0.1, -1, 0, 0, 0)
+
+[sub_resource type="MultiMesh" id="MultiMesh_82xsv"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_cegan"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_82xsv"]
+height = 4.86881
+
+[sub_resource type="SphereMesh" id="SphereMesh_cegan"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_82xsv"]
+
+[node name="test" type="Node2D"]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.866023, -0.433016, 0.250001, 0, 0.499998, 0.866027, -0.500003, 0.749999, -0.43301, 2.57945, 5.0832, -1.41227)
+shadow_enabled = true
+
+[node name="SciFi Assets" parent="." instance=ExtResource("1_vxl6d")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0625829, 0, -4.21984)
+
+[node name="SciFi Assets2" parent="." instance=ExtResource("2_eski5")]
+transform = Transform3D(-0.0323702, 0, 0.999476, 0, 1, 0, -0.999476, 0, -0.0323702, -5.55957, 0, 0.348788)
+
+[node name="SciFi Assets3" parent="." instance=ExtResource("3_pdf00")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.08113, 0, -4.34128)
+
+[node name="SciFi Assets4" parent="." instance=ExtResource("4_a6gra")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.93133, 0, -4.22777)
+
+[node name="SciFi Assets5" parent="." instance=ExtResource("5_dwqlq")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.53503, 2.08815, -3.58784)
+
+[node name="SciFi Assets6" parent="." instance=ExtResource("6_15c7i")]
+transform = Transform3D(1, 0, 0, 0, 0.998831, -0.0483442, 0, 0.0483442, 0.998831, 3.43607, 2.34108, -3.58422)
+
+[node name="SciFi Assets7" parent="." instance=ExtResource("7_xpeyw")]
+transform = Transform3D(0.0196254, 0, -2.50982, 0, 1, 0, 0.969219, 0, 0.0508204, -5.57078, 0.0126419, 4.20779)
+
+[node name="SciFi Assets8" parent="." instance=ExtResource("8_dpmuy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.80814, 0, -2.04515)
+
+[node name="SciFi Assets9" parent="." instance=ExtResource("9_yww54")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0876615, 0, -2.00529)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="SciFi Assets9"]
+visible = false
+mesh = ExtResource("10_j75vh")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="SciFi Assets9/MeshInstance3D"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="SciFi Assets9/MeshInstance3D/StaticBody3D"]
+shape = SubResource("WorldBoundaryShape3D_getpj")
+
+[node name="SciFi Assets10" parent="." instance=ExtResource("11_rrpoi")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0279598, 0, 2.01928)
+
+[node name="MultiMeshInstance3D" type="MultiMeshInstance3D" parent="SciFi Assets10"]
+multimesh = SubResource("MultiMesh_cegan")
+
+[node name="SciFi Assets11" parent="." instance=ExtResource("12_34fux")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.05935, 0, 2.00974)
+
+[node name="MultiMeshInstance3D" type="MultiMeshInstance3D" parent="SciFi Assets11"]
+multimesh = SubResource("MultiMesh_82xsv")
+
+[node name="SciFi Assets12" parent="." instance=ExtResource("13_ppv7d")]
+transform = Transform3D(0.00483459, 0, -0.999988, 0, 1, 0, 0.999988, 0, 0.00483459, 4.03216, 0, -1.98788)
+
+[node name="SciFi Assets13" parent="." instance=ExtResource("14_naet1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.89779, 0, 2.03964)
+
+[node name="SciFi Assets14" parent="." instance=ExtResource("15_6qlrc")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.7659, 0, -2.19449)
+
+[node name="SciFi Assets15" parent="." instance=ExtResource("16_shobf")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.0767, 0, -2.45366)
+
+[node name="SciFi Assets16" parent="." instance=ExtResource("17_lb1cv")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.85293, 0, 1.90479)
+
+[node name="SciFi Assets17" parent="." instance=ExtResource("18_2h37t")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.02876, 0.115878, 1.47361)
+
+[node name="StaticBody3D" type="StaticBody3D" parent="SciFi Assets17"]
+
+[node name="CollisionPolygon3D" type="CollisionPolygon3D" parent="SciFi Assets17/StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.145485, 0)
+polygon = PackedVector2Array(0.118326, 2.18542, 0.174842, 2.21162, 1.18921, 2.12778, 1.64676, 1.73114, 1.00946, 1.66715, 0.204536, 1.64754, 0.280492, 0.204684, -0.378109, 0.344037, -0.0847235, 2.12628)
+
+[node name="SciFi Assets18" parent="." instance=ExtResource("19_adp8l")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.00503, 0, 0.265557)
+
+[node name="StaticBody3D" type="StaticBody3D" parent="SciFi Assets18"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.965053, 0)
+collision_layer = 39
+physics_material_override = SubResource("PhysicsMaterial_cegan")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="SciFi Assets18/StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.0118685, 0)
+shape = SubResource("CapsuleShape3D_82xsv")
+
+[node name="Player" type="CharacterBody3D" parent="."]
+script = ExtResource("20_dvnpp")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Player"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.986469, 0)
+mesh = SubResource("SphereMesh_cegan")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.990419, 0)
+shape = SubResource("SphereShape3D_82xsv")
+debug_color = Color(0, 0.597115, 0.716321, 0.42)
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(0.707107, -0.353553, 0.612372, 0, 0.866025, 0.5, -0.707107, -0.353553, 0.612372, 10, 10, 10)
+current = true
+fov = 69.3476

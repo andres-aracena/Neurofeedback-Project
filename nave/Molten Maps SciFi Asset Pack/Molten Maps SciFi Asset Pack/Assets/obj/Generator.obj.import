@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://tylit2to6t1b"
+path="res://.godot/imported/Generator.obj-faebc4717c6621f2102dbba1ed9a9edf.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Generator.obj-faebc4717c6621f2102dbba1ed9a9edf.mesh"]
+
+source_file="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/obj/Generator.obj"
+dest_files=["res://.godot/imported/Generator.obj-faebc4717c6621f2102dbba1ed9a9edf.mesh", "res://.godot/imported/Generator.obj-faebc4717c6621f2102dbba1ed9a9edf.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

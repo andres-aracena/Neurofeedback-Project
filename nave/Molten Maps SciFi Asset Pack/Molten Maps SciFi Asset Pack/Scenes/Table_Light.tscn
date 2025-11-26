@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://mdhultqmmsep"]
+
+[ext_resource type="PackedScene" uid="uid://dw7u70wouubr2" path="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/gtlf/Table_Light.glb" id="1_rbcnd"]
+
+[node name="SciFi Assets" instance=ExtResource("1_rbcnd")]
+
+[node name="Table Light" parent="." index="0"]
+gi_lightmap_texel_scale = 2.9173

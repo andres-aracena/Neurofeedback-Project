@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://b6r6oml2h7hcw"
+path="res://.godot/imported/Hydroponics_Empty.obj-2705d46af12426ef233739365a53eccd.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Hydroponics_Empty.obj-2705d46af12426ef233739365a53eccd.mesh"]
+
+source_file="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/obj/Hydroponics_Empty.obj"
+dest_files=["res://.godot/imported/Hydroponics_Empty.obj-2705d46af12426ef233739365a53eccd.mesh", "res://.godot/imported/Hydroponics_Empty.obj-2705d46af12426ef233739365a53eccd.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

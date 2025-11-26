@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://bls77n2ikygnf"
+path="res://.godot/imported/Wall_With_Door_Grey.obj-0de7b805f685f5fdf89f22ac000f4abf.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Wall_With_Door_Grey.obj-0de7b805f685f5fdf89f22ac000f4abf.mesh"]
+
+source_file="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/obj/Wall_With_Door_Grey.obj"
+dest_files=["res://.godot/imported/Wall_With_Door_Grey.obj-0de7b805f685f5fdf89f22ac000f4abf.mesh", "res://.godot/imported/Wall_With_Door_Grey.obj-0de7b805f685f5fdf89f22ac000f4abf.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

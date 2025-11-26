@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://uks38l0tc27g"
+path="res://.godot/imported/Wall_Glass_Red.obj-4b8fa02da27d45b8baa352bb2a7ad50e.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Wall_Glass_Red.obj-4b8fa02da27d45b8baa352bb2a7ad50e.mesh"]
+
+source_file="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/obj/Wall_Glass_Red.obj"
+dest_files=["res://.godot/imported/Wall_Glass_Red.obj-4b8fa02da27d45b8baa352bb2a7ad50e.mesh", "res://.godot/imported/Wall_Glass_Red.obj-4b8fa02da27d45b8baa352bb2a7ad50e.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

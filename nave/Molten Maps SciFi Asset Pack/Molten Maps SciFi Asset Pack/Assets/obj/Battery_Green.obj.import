@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dghqdbmddes31"
+path="res://.godot/imported/Battery_Green.obj-090e18ea7a9b040a4bffc2a762a68cda.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Battery_Green.obj-090e18ea7a9b040a4bffc2a762a68cda.mesh"]
+
+source_file="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/obj/Battery_Green.obj"
+dest_files=["res://.godot/imported/Battery_Green.obj-090e18ea7a9b040a4bffc2a762a68cda.mesh", "res://.godot/imported/Battery_Green.obj-090e18ea7a9b040a4bffc2a762a68cda.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

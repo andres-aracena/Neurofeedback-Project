@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://dlvm8sc40wj8n"]
+
+[node name="CorsiGame" type="Node"]
+
+[node name="BlocksContainer" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="BackButton" type="Button" parent="."]
+offset_right = 8.0
+offset_bottom = 8.0
+
+[node name="UIManager" type="CanvasLayer" parent="."]
+
+[node name="CustomProgressBar" type="Control" parent="UIManager"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="NeurofeedbackDiplay" type="Control" parent="UIManager"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="TextDisplay" type="Control" parent="UIManager"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0

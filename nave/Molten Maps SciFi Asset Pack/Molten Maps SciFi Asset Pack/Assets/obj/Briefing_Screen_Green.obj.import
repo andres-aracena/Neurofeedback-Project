@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://ddu46xgoeybb0"
+path="res://.godot/imported/Briefing_Screen_Green.obj-802e15dee4b8d553d72185f4e43730ea.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Briefing_Screen_Green.obj-802e15dee4b8d553d72185f4e43730ea.mesh"]
+
+source_file="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/obj/Briefing_Screen_Green.obj"
+dest_files=["res://.godot/imported/Briefing_Screen_Green.obj-802e15dee4b8d553d72185f4e43730ea.mesh", "res://.godot/imported/Briefing_Screen_Green.obj-802e15dee4b8d553d72185f4e43730ea.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

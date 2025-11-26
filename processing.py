@@ -3,43 +3,69 @@ import time
 import numpy as np
 import pywt
 import pyqtgraph as pg
-from filters import bandpass_sos, preprocess_signal, check_bandpass_gain, envelope
+from collections import deque
+from filters import bandpass_sos, preprocess_signal, envelope
+
 
 # =========================
-# Wavelet transform
+# CLASE: Suavizado Temporal
+# =========================
+class RatioSmoother:
+    """
+    Mantiene un historial reciente del ratio para eliminar el 'jitter' (temblor).
+    Usa la Mediana para ignorar picos repentinos de ruido.
+    """
+
+    def __init__(self, history_size=20):
+        # history_size=20 @ 80ms update = 1.6 segundos de suavizado
+        self.history = deque(maxlen=history_size)
+
+    def update(self, new_val):
+        # Protección contra valores matemáticos inválidos
+        if np.isnan(new_val) or np.isinf(new_val):
+            return self.get_current()
+
+        self.history.append(new_val)
+        return self.get_current()
+
+    def get_current(self):
+        if not self.history:
+            return 0.5
+        # La mediana es mejor que el promedio para filtrar ruido impulsivo
+        return np.median(self.history)
+
+
+# Instancia global del suavizador
+ratio_smoother = RatioSmoother(history_size=25)
+
+
+# =========================
+# WAVELET TRANSFORM
 # =========================
 def compute_wavelet(raw_win, fs, freqs, wavelet='cmor1.5-1.0'):
-    """
-    Continuous Wavelet Transform (CWT) usando Morlet compleja.
-    Devuelve matriz de potencia normalizada (n_freqs, n_times) en µV².
-    """
+    """Calcula la potencia espectral usando CWT Morlet."""
     scales = pywt.central_frequency(wavelet) * fs / freqs
-    coeffs, _ = pywt.cwt(raw_win, scales, wavelet, sampling_period=1/fs)
-    # Potencia instantánea
-    power = np.abs(coeffs) ** 2  # µV²
-
-    # Normalización por escala
+    coeffs, _ = pywt.cwt(raw_win, scales, wavelet, sampling_period=1 / fs)
+    power = np.abs(coeffs) ** 2
+    # Normalización por escala para corregir el espectro 1/f
     return power / (scales[:, None] + 1e-18)
 
 
 # =========================
-# Theta/Gamma Ratio
+# CÁLCULO DE RATIO
 # =========================
 def compute_tg_ratio(theta_power, gamma_power, eps=1e-12):
-    """
-    Calcula el ratio normalizado Theta/Gamma en [0,1]:
-        ratio = Pθ / (Pθ + Pγ + eps)
-    """
-    return theta_power / (theta_power + gamma_power + eps)
+    """Fórmula: Theta / (Theta + Gamma)"""
+    total_power = theta_power + gamma_power + eps
+    ratio = theta_power / total_power
+    return np.clip(ratio, 0.0, 1.0)
 
 
 # =========================
-# Auxiliares de visualización
+# VISUALIZACIÓN
 # =========================
 def update_wavelet_plot(ui, spec_db, freqs, win_sec):
-    """
-    Actualiza el espectrograma Wavelet en la interfaz.
-    """
+    """Actualiza el mapa de calor (espectrograma) en la UI."""
     ui['img_cwt'].setImage(
         spec_db,
         autoLevels=False,
@@ -47,135 +73,131 @@ def update_wavelet_plot(ui, spec_db, freqs, win_sec):
         levels=(np.percentile(spec_db, 5), np.percentile(spec_db, 95)),
         interpolation=True
     )
+    # Ajustar coordenadas físicas del gráfico
     ui['img_cwt'].setRect(pg.QtCore.QRectF(
         ui['t_cwt'][0],
         freqs[0],
         win_sec,
         freqs[-1] - freqs[0]
     ))
-    ui['cbar'].setLevels((np.percentile(spec_db, 5), np.percentile(spec_db, 95)))
 
 
 # =========================
-# Update Loop principal
+# LOOP PRINCIPAL DE ACTUALIZACIÓN
 # =========================
 def update_loop(buffers, fs, theta_band, gamma_band, eps, ui, t0, ch_sel, win_sec, offset, mode='wavelet'):
     """
-    Actualiza todas las gráficas en tiempo real:
-      1) Ratio Theta/Gamma global
-      2) Señal crudas (canal seleccionado)
-      3) Señal filtrada o envolvente wavelet (canal seleccionado)
-      4) Espectrograma wavelet (canal seleccionado)
-      5) Potencia media de bandas (barras)
+    Procesa los buffers de EEG, calcula potencias, actualiza gráficos y retorna el Ratio Suavizado.
     """
 
-    # Eje temporal y máscaras
     t_axis = np.linspace(-win_sec, 0, win_sec * fs)
     freqs = ui['freqs']
-    theta_mask = (freqs >= theta_band[0]) & (freqs <= theta_band[1])
-    gamma_mask = (freqs >= gamma_band[0]) & (freqs <= gamma_band[1])
 
-    # --- 2) Señal cruda del canal seleccionado con ajuste de rango Y ---
-    sig = np.asarray(buffers[ch_sel])[-win_sec * fs:]
-    ui['curve_raw'].setData(t_axis, sig)
+    # --- 1. PREPARACIÓN DE DATOS (DC REMOVAL) ---
+    raw_data_matrix = []
+    for buff in buffers:
+        sig = np.asarray(buff)[-win_sec * fs:]
+        if len(sig) > 0:
+            # RESTA LA MEDIA INMEDIATA: Centra la señal en 0 uV
+            sig = sig - np.mean(sig)
+        raw_data_matrix.append(sig)
 
-    # Calcular márgenes automáticamente (MODIFICADO)
-    if len(sig) > 0:
-        y_min = np.min(sig)
-        y_max = np.max(sig)
-        y_range = y_max - y_min
+    # --- 2. VISUALIZACIÓN SEÑAL CRUDA ---
+    sig_disp = raw_data_matrix[ch_sel]
+    ui['curve_raw'].setData(t_axis, sig_disp)
+    # Escala fija tolerante para ver saturación
+    if len(sig_disp) > 0:
+        ui['p_raw'].setYRange(-200, 200)
 
-        # Agregar margen del 20% por arriba y por abajo
-        margin = y_range * 0.2
-        # Si la señal es muy plana, usar un margen mínimo
-        if margin < 10:  # margen mínimo de 10 µV
-            margin = 10
+    # Arrays para acumular resultados por canal
+    theta_pows, gamma_pows, raw_ratios = [], [], []
 
-        y_min_with_margin = y_min - margin
-        y_max_with_margin = y_max + margin
+    # Máscaras booleanas para Wavelet (Pre-calculadas)
+    mask_theta = (freqs >= theta_band[0]) & (freqs <= theta_band[1])
+    mask_gamma = (freqs >= gamma_band[0]) & (freqs <= gamma_band[1])
 
-        # Aplicar el rango Y con márgenes
-        ui['p_raw'].setYRange(y_min_with_margin, y_max_with_margin)
+    # --- 3. PROCESAMIENTO CANAL POR CANAL ---
+    for i, raw_win in enumerate(raw_data_matrix):
+        # Filtros de limpieza (Notch 50Hz ya aplicado aquí si filters.py está correcto)
+        clean_win = preprocess_signal(raw_win, fs=fs)
 
-    # Resultados agregados
-    theta_pows, gamma_pows, ratios = [], [], []
+        theta_power = 0
+        gamma_power = 0
 
-    # --- Procesar cada canal ---
-    for i in range(len(buffers)):
-        raw_win = np.asarray(buffers[i])[-win_sec * fs:]
-        raw_win = preprocess_signal(raw_win, fs=fs)
+        # Variables para visualizar curvas
+        theta_viz = np.zeros_like(clean_win)
+        gamma_viz = np.zeros_like(clean_win)
 
-        # ---  CWT + potencias ---
-        power_norm = compute_wavelet(raw_win, fs, freqs)
+        # === OPCIÓN WAVELET (Recomendada) ===
+        if mode == 'wavelet':
+            power_norm = compute_wavelet(clean_win, fs, freqs)
 
-        if mode == 'butterworth':
-            # Ganancia de banda calculada aquí (más seguro que pasarla como arg)
-            gdb_theta = check_bandpass_gain(*theta_band, fs=fs)
-            gdb_gamma = check_bandpass_gain(*gamma_band, fs=fs)
+            # Potencia Theta
+            if np.any(mask_theta):
+                # Promedio en banda Theta
+                theta_vec = np.mean(power_norm[mask_theta, :], axis=0)
+                theta_power = np.mean(theta_vec)
+                theta_viz = np.sqrt(theta_vec)  # Para visualización (amplitud)
 
-            # Filtrado Butterworth
-            theta_filt = bandpass_sos(raw_win, *theta_band, fs=fs)
-            gamma_filt = bandpass_sos(raw_win, *gamma_band, fs=fs)
+            # Potencia Gamma (Banda Completa)
+            if np.any(mask_gamma):
+                # Promedio en banda Gamma completa
+                gamma_vec = np.mean(power_norm[mask_gamma, :], axis=0)
+                gamma_power = np.mean(gamma_vec)
+                gamma_viz = np.sqrt(gamma_vec)  # Para visualización (amplitud)
 
-            # Corrección de ganancia
-            theta_filt /= (10 ** (gdb_theta / 20) + 1e-12)
-            gamma_filt /= (10 ** (gdb_gamma / 20) + 1e-12)
+            # Visualización Espectrograma (Solo canal seleccionado)
+            if i == ch_sel:
+                spec_db = 10 * np.log10(np.clip(power_norm.T, 1e-18, None)).astype(np.float32)
+                update_wavelet_plot(ui, spec_db, freqs, win_sec)
 
-            # Envolventes Hilbert
-            theta_env = envelope(theta_filt)
-            gamma_env = envelope(gamma_filt)
+        # === OPCIÓN BUTTERWORTH (Más rápida) ===
+        else:
+            # Theta
+            t_sig = bandpass_sos(clean_win, *theta_band, fs=fs)
+            t_env = envelope(t_sig)
+            theta_power = np.mean(t_env ** 2)
+            theta_viz = t_env
 
-            # Potencias
-            theta_power = np.mean(theta_env ** 2)
-            gamma_power = np.mean(gamma_env ** 2)
+            # Gamma (Banda Completa)
+            g_sig = bandpass_sos(clean_win, *gamma_band, fs=fs)
+            g_env = envelope(g_sig)
+            gamma_power = np.mean(g_env ** 2)
+            gamma_viz = g_env
 
-            ui["p_filt"].setLabel('left', 'Amplitud (µV)')
-            ui['p_env'].setTitle("Envolventes por canal (Theta / Gamma)")
-            ui['p_env'].setLabel('left', 'Amplitud (µV)')
-
-        else:  # === mode == 'wavelet' ===
-            theta_env = np.sqrt(np.mean(power_norm[theta_mask, :], axis=0))
-            gamma_env = np.sqrt(np.mean(power_norm[gamma_mask, :], axis=0))
-
-            theta_power = np.mean(theta_env ** 2)
-            gamma_power = np.mean(gamma_env ** 2)
-
-            ui["p_filt"].setLabel('left', 'Amplitud Media (µV)')
-            ui['p_env'].setTitle("Potencia por canal (Theta / Gamma)")
-            ui['p_env'].setLabel('left', 'Potencia Instantanea (µV²)')
-
-        # Guardar para barras y ratio
         theta_pows.append(theta_power)
         gamma_pows.append(gamma_power)
-        ratios.append(compute_tg_ratio(theta_power, gamma_power, eps))
 
-        # --- 3 y 4) Canal seleccionado ---
+        # Ratio CRUDO de este canal (instantáneo)
+        raw_ratios.append(compute_tg_ratio(theta_power, gamma_power, eps))
+
+        # Visualización de curvas filtradas (Solo canal seleccionado)
         if i == ch_sel:
-            ui["p_filt"].setTitle(f"Señal filtrada {mode}(Canal {ch_sel+1})")
-            if mode == 'butterworth':
-                ui['curve_theta'].setData(t_axis, theta_filt)
-                ui['curve_gamma'].setData(t_axis, gamma_filt)
-            else:
-                ui['curve_theta'].setData(t_axis, theta_env)
-                ui['curve_gamma'].setData(t_axis, gamma_env)
+            ui['curve_theta'].setData(t_axis, theta_viz)
+            ui['curve_gamma'].setData(t_axis, gamma_viz)
 
-            # Espectrograma en dB
-            spec_db = 10 * np.log10(np.clip(power_norm.T, 1e-18, None)).astype(np.float32)
-            ui['p_cwt'].setTitle(f"Espectrograma Wavelet (Canal {ch_sel+1})")
-            update_wavelet_plot(ui, spec_db, freqs, win_sec)
+    # --- 4. AGREGACIÓN Y SUAVIZADO ---
 
-    # --- 5) Barras ---
+    # A. Mediana Espacial:
+    spatial_ratio = np.median(raw_ratios) if raw_ratios else 0.5
+
+    # B. Suavizado Temporal:
+    smoothed_ratio = ratio_smoother.update(spatial_ratio)
+
+    # --- 5. ACTUALIZACIÓN UI FINAL ---
     ui['bar_theta'].setOpts(height=np.array(theta_pows))
     ui['bar_gamma'].setOpts(height=np.array(gamma_pows))
 
-    # --- 1) Ratio global ---
     t_now = time.time() - t0
     ui['ratio_t'].append(t_now)
-    ui['ratio_y'].append(np.median(ratios))
+
+    # Graficamos el ratio suavizado
+    ui['ratio_y'].append(smoothed_ratio)
+
     ui['curve_ratio'].setData(
         np.fromiter(ui['ratio_t'], float),
         np.fromiter(ui['ratio_y'], float)
     )
     ui['p_ratio'].setXRange(max(0, ui['ratio_t'][-1] - 30), ui['ratio_t'][-1])
 
-    return np.median(ratios)
+    return smoothed_ratio

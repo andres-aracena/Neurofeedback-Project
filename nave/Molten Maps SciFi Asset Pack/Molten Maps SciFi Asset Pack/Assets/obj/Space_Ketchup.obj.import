@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://tuy1gqbo2quq"
+path="res://.godot/imported/Space_Ketchup.obj-7d0dee089e6375efac3eece07fb87e96.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Space_Ketchup.obj-7d0dee089e6375efac3eece07fb87e96.mesh"]
+
+source_file="res://Molten Maps SciFi Asset Pack/Molten Maps SciFi Asset Pack/Assets/obj/Space_Ketchup.obj"
+dest_files=["res://.godot/imported/Space_Ketchup.obj-7d0dee089e6375efac3eece07fb87e96.mesh", "res://.godot/imported/Space_Ketchup.obj-7d0dee089e6375efac3eece07fb87e96.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

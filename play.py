@@ -1,18 +1,16 @@
 import sys, time, os, csv
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets, QtCore, QtGui
 import pyqtgraph as pg
 from collections import deque
 import numpy as np
 import pandas as pd
 
-# Importamos TUS módulos locales para asegurar identidad visual y matemática
+# Importamos TUS módulos locales
 try:
     from processing import update_loop
     from plotting import create_ui, connect_channel_controls
 except ImportError as e:
-    print(f"❌ Error crítico: No se encuentran los módulos del sistema (processing.py, plotting.py).")
-    print(f"   Detalle: {e}")
-    print("   Asegúrate de ejecutar este script en la misma carpeta que tu main.py")
+    print(f"❌ Error crítico: Faltan módulos (processing.py, plotting.py).")
     sys.exit(1)
 
 
@@ -20,49 +18,45 @@ class ReplayPlayer(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        # Configuración por defecto (se sobrescribirá al cargar el archivo)
+        # Configuración Base
         self.fs = 250
         self.n_ch = 8
-        self.win_sec = 10  # Ventana visual igual que en tiempo real
-        self.update_ms = 80  # Velocidad de actualización igual que en main.py
+        self.win_sec = 10
+        self.update_ms = 30  # 25 FPS para fluidez
 
-        # Bandas de frecuencia (Idénticas a main.py)
         self.theta_band = (4.0, 8.0)
-        self.gamma_band = (30.0, 90.0)
+        self.gamma_band = (30.0, 80.0)
         self.eps = 1e-12
         self.offset = 250
-        self.mode = 'wavelet'  # Por defecto, se leerá del CSV si existe
+        self.mode = 'wavelet'
 
-        # Estado de reproducción
+        # Estado
         self.playing = False
         self.current_idx = 0
         self.data_len = 0
         self.df = None
         self.raw_data = None
 
-        # Interfaz
         self.setup_ui_structure()
-
-        # Cargar archivo al inicio
         self.load_file()
 
     def setup_ui_structure(self):
-        self.setWindowTitle("Neurofeedback Replay System")
+        self.setWindowTitle("Neurofeedback Replay System - Universal Player")
         self.layout = QtWidgets.QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
 
-        # 1. Área de Gráficos (Placeholder, se crea al cargar datos)
+        # 1. Área de Gráficos
         self.plot_container = QtWidgets.QWidget()
         self.layout.addWidget(self.plot_container, stretch=1)
 
-        # 2. Panel de Control de Reproducción
+        # 2. Controles
         control_panel = QtWidgets.QWidget()
         control_panel.setStyleSheet("background-color: #2b2b2b; color: white;")
         cp_layout = QtWidgets.QHBoxLayout(control_panel)
 
         self.btn_play = QtWidgets.QPushButton("▶ Reproducir")
         self.btn_play.clicked.connect(self.toggle_play)
-        self.btn_play.setStyleSheet("background-color: #4CAF50; font-weight: bold; padding: 5px;")
+        self.btn_play.setStyleSheet("background-color: #4CAF50; font-weight: bold; padding: 6px;")
 
         self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.slider.sliderPressed.connect(self.slider_pressed)
@@ -71,7 +65,7 @@ class ReplayPlayer(QtWidgets.QWidget):
 
         self.lbl_time = QtWidgets.QLabel("00:00 / 00:00")
         self.lbl_info = QtWidgets.QLabel("Esperando archivo...")
-        self.lbl_info.setStyleSheet("color: #aaaaaa; font-size: 10px;")
+        self.lbl_info.setStyleSheet("color: #aaaaaa; font-size: 11px; margin-left: 10px;")
 
         cp_layout.addWidget(self.btn_play)
         cp_layout.addWidget(self.lbl_time)
@@ -80,95 +74,223 @@ class ReplayPlayer(QtWidgets.QWidget):
         self.layout.addWidget(control_panel)
         self.layout.addWidget(self.lbl_info)
 
-        # Timer de actualización (simula el loop de main.py)
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_frame)
 
     def load_file(self):
         filename, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self, "Seleccionar Grabación CSV", "", "CSV Files (*.csv)"
+            self, "Abrir Grabación", "", "Archivos de Datos (*.csv *.npz)"
         )
-
-        if not filename:
-            sys.exit(0)
+        if not filename: sys.exit(0)
 
         print(f"📂 Cargando: {os.path.basename(filename)}...")
 
         try:
-            # Carga rápida con Pandas
-            self.df = pd.read_csv(filename)
-
-            # Detectar columnas de canales
-            ch_cols = [c for c in self.df.columns if c.startswith('channel_')]
-            self.n_ch = len(ch_cols)
-
-            if self.n_ch == 0:
-                raise ValueError("No se encontraron columnas 'channel_X'")
-
-            # Extraer matriz de datos EEG (Muestras x Canales)
-            self.raw_data = self.df[ch_cols].values
-            self.data_len = len(self.df)
-
-            # Estimar Frecuencia de Muestreo (FS)
-            timestamps = self.df['timestamp'].values
-            if len(timestamps) > 1:
-                diffs = np.diff(timestamps)
-                # Mediana para ignorar saltos
-                median_diff = np.median(diffs[diffs > 0])
-                self.fs = int(round(1.0 / median_diff))
+            ext = os.path.splitext(filename)[1].lower()
+            if ext == '.npz':
+                self._process_npz(filename)
             else:
-                self.fs = 250  # Default
+                self._process_csv(filename)
 
-            # Detectar modo de filtro usado
-            if 'filter_mode' in self.df.columns:
-                self.mode = self.df['filter_mode'].iloc[0]
+            # Post-Carga
+            if self.df is None or self.raw_data is None:
+                raise ValueError("No se pudieron cargar datos válidos.")
 
-            print(f"✅ Configuración detectada: {self.n_ch} canales, {self.fs} Hz, Modo: {self.mode}")
+            self.data_len = len(self.df)
+            self.n_ch = self.raw_data.shape[1]
 
-            # Inicializar Buffers (Deque, igual que en main.py)
+            # Estimar FS
+            if len(self.df) > 1:
+                diffs = np.diff(self.df['timestamp'].values)
+                valid = diffs[diffs > 0]
+                if len(valid) > 0:
+                    self.fs = int(round(1.0 / np.median(valid)))
+
+            print(f"✅ Listo: {self.n_ch} canales, {self.fs} Hz, {self.data_len} muestras.")
+
+            # Reset Buffers
             self.win_samples = self.win_sec * self.fs
             self.buffers = [deque([0.0] * self.win_samples, maxlen=self.win_samples) for _ in range(self.n_ch)]
 
-            # Inicializar UI de Plotting.py
             self.init_plotting_ui()
-
-            # Configurar Slider
             self.slider.setRange(0, self.data_len)
             self.update_info_label()
-
-            # Tiempo de inicio para gráficas relativas
             self.t0 = time.time()
 
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Error", f"Error leyendo archivo:\n{e}")
+            QtWidgets.QMessageBox.critical(self, "Error", f"Fallo al cargar:\n{e}")
+            import traceback
+            traceback.print_exc()
             sys.exit(1)
 
+    # ==========================================
+    # CARGA ROBUSTA (De-duplicación y Anti-Zero)
+    # ==========================================
+
+    def _process_csv(self, filepath):
+        data_rows = []
+        last_ts = -1.0
+        repaired_zeros = 0
+        dropped_duplicates = 0
+
+        with open(filepath, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            headers = reader.fieldnames
+            ch_cols = [c for c in headers if c.startswith('channel_')]
+            meta_cols = [c for c in headers if not c.startswith('channel_')]
+
+            last_valid_eeg = [0.0] * len(ch_cols)
+
+            for row in reader:
+                try:
+                    ts = float(row['timestamp'])
+
+                    # 1. Filtro de duplicados
+                    if ts <= last_ts:
+                        dropped_duplicates += 1
+                        continue
+
+                    # 2. Reparación de ceros (Sample & Hold)
+                    current_eeg = []
+                    is_zero = True
+                    for col in ch_cols:
+                        val = float(row[col])
+                        current_eeg.append(val)
+                        if abs(val) > 1e-6: is_zero = False
+
+                    if is_zero and len(ch_cols) > 0:
+                        current_eeg = list(last_valid_eeg)
+                        repaired_zeros += 1
+                    else:
+                        last_valid_eeg = list(current_eeg)
+
+                    # Construir fila limpia
+                    clean_row = {'timestamp': ts, **{k: row.get(k, '') for k in meta_cols if k != 'timestamp'}}
+                    for i, col in enumerate(ch_cols): clean_row[col] = current_eeg[i]
+
+                    data_rows.append(clean_row)
+                    last_ts = ts
+                except ValueError:
+                    continue
+
+        self.df = pd.DataFrame(data_rows)
+        self._finalize_processing(ch_cols, dropped_duplicates, repaired_zeros)
+
+    def _process_npz(self, filepath):
+        try:
+            data = np.load(filepath, allow_pickle=True)
+        except:
+            data = np.load(filepath, allow_pickle=False)
+
+        if 'eeg_data' in data:
+            eeg = data['eeg_data']
+        elif 'eeg' in data:
+            eeg = data['eeg']
+        else:
+            raise ValueError("NPZ sin datos EEG")
+
+        if eeg.shape[0] < eeg.shape[1]: eeg = eeg.T
+
+        min_len = eeg.shape[0]
+
+        # Reconstruir DataFrame
+        df_dict = {}
+        if 'timestamps' in data and len(data['timestamps']) >= min_len:
+            df_dict['timestamp'] = data['timestamps'][:min_len]
+        else:
+            fs_est = int(data.get('fs', 250)) if 'fs' in data else 250
+            df_dict['timestamp'] = np.arange(min_len) / fs_est
+
+        ch_cols = []
+        for i in range(eeg.shape[1]):
+            c = f'channel_{i + 1}'
+            df_dict[c] = eeg[:, i]
+            ch_cols.append(c)
+
+        r = data.get('neurofeedback_ratios', data.get('ratios', np.zeros(min_len)))
+        if len(r) > min_len:
+            r = r[:min_len]
+        elif len(r) < min_len:
+            r = np.pad(r, (0, min_len - len(r)), 'edge')
+        df_dict['ratio'] = r
+
+        states = np.full(min_len, 'unknown', dtype=object)
+        energies = np.zeros(min_len)
+        missions = np.full(min_len, '', dtype=object)
+
+        if 'game_states' in data:
+            gs = data['game_states']
+            if len(gs) > 0:
+                factor = min_len / len(gs)
+                try:
+                    indices = (np.arange(min_len) / factor).astype(int)
+                    indices = np.clip(indices, 0, len(gs) - 1)
+                    if isinstance(gs[0], dict):
+                        s_list = [g.get('game_state', 'unknown') for g in gs]
+                        e_list = [g.get('energy', 0) for g in gs]
+                        m_list = [g.get('mission_state', '') for g in gs]
+                        states = np.array(s_list)[indices]
+                        energies = np.array(e_list)[indices]
+                        missions = np.array(m_list)[indices]
+                except:
+                    pass
+
+        df_dict['game_state'] = states
+        df_dict['energy'] = energies
+        df_dict['mission_state'] = missions
+
+        self.df = pd.DataFrame(df_dict)
+        self.mode = str(data.get('mode', 'wavelet'))
+
+        self._finalize_processing(ch_cols, 0, 0)
+
+    def _finalize_processing(self, ch_cols, dups, zeros):
+        # 1. Limpieza de señal (RAW -> uV y DC Removal)
+        eeg_matrix = self.df[ch_cols].values
+
+        if np.max(np.abs(eeg_matrix)) > 50000:
+            print("   -> Detectado formato RAW. Escalando...")
+            eeg_matrix = eeg_matrix * 0.02235
+
+        eeg_matrix = eeg_matrix - np.mean(eeg_matrix, axis=0)
+
+        self.raw_data = eeg_matrix
+        self.n_ch = len(ch_cols)
+        self.data_len = len(self.df)
+
+        # Detectar modo del CSV
+        if 'filter_mode' in self.df.columns:
+            val = self.df['filter_mode'].iloc[0]
+            if isinstance(val, str) and len(val) > 2:
+                self.mode = val
+
+        print(f"   🔧 Reparaciones: {dups} duplicados, {zeros} ceros.")
+
+    # ==========================================
+    # VISUALIZACIÓN
+    # ==========================================
+
     def init_plotting_ui(self):
-        # Limpiar contenedor anterior si existe
         if self.plot_container.layout():
             QtWidgets.QWidget().setLayout(self.plot_container.layout())
 
-        # Usar create_ui de TU plotting.py para que se vea IDÉNTICO
-        # Necesitamos un layout vertical para meter el widget que devuelve create_ui
         layout = QtWidgets.QVBoxLayout(self.plot_container)
         layout.setContentsMargins(0, 0, 0, 0)
-
         pg.setConfigOptions(antialias=True, background='#111218', foreground='w')
 
-        # Llamada a tu función original
         self.main_plot_widget, self.ui_dict = create_ui(self.n_ch, self.win_sec, self.offset, self.fs)
-
         layout.addWidget(self.main_plot_widget)
 
-        # Conectar controles de canales
         self.ch_sel = {"idx": 0}
         connect_channel_controls(self.ui_dict, self.n_ch, lambda new_idx: self.ch_sel.update(idx=new_idx))
 
-        # Label extra para estado del juego (Overlay)
-        self.lbl_overlay = QtWidgets.QLabel(self.main_plot_widget)
+        # --- FIX: OVERLAY PARENTING ---
+        # Emparentamos el Label a self (la ventana principal) para que flote encima
+        self.lbl_overlay = QtWidgets.QLabel(self)
         self.lbl_overlay.setStyleSheet(
-            "color: lime; font-size: 14px; font-weight: bold; background-color: rgba(0,0,0,150); padding: 5px;")
-        self.lbl_overlay.move(20, 20)  # Esquina superior izquierda
+            "color: #00FF00; font-size: 14px; font-weight: bold; background-color: rgba(0,0,0,180); padding: 8px; border-radius: 4px;")
+        self.lbl_overlay.move(40, 40)  # Margen seguro desde el borde
+        self.lbl_overlay.raise_()  # Forzar al frente
         self.lbl_overlay.show()
 
     def update_frame(self):
@@ -179,87 +301,69 @@ class ReplayPlayer(QtWidgets.QWidget):
                 self.timer.stop()
             return
 
-        # Calcular cuántas muestras procesar en este frame
-        # En main.py se procesan bloques cada 80ms.
-        # samples_per_frame = FS * (UPDATE_MS / 1000)
         samples_to_read = int(self.fs * (self.update_ms / 1000.0))
-
-        # Asegurar que no nos pasamos del final
         end_idx = min(self.current_idx + samples_to_read, self.data_len)
 
-        # Extraer chunk de datos
-        chunk = self.raw_data[self.current_idx: end_idx]
+        # Validación de seguridad
+        if end_idx <= self.current_idx: return
 
-        # Si no hay datos, salir
+        chunk = self.raw_data[self.current_idx: end_idx]
         if len(chunk) == 0: return
 
-        # 1. Alimentar Buffers (Igual que main.py update)
-        # Transponer chunk para iterar por canales
         chunk_T = chunk.T
         for i in range(self.n_ch):
             self.buffers[i].extend(chunk_T[i])
 
-        # 2. Llamar a TU update_loop original (Processing.py)
-        # Esto garantiza que el cálculo matemático y el dibujado sean idénticos
-        ratio = update_loop(
-            self.buffers,
-            self.fs,
-            self.theta_band,
-            self.gamma_band,
-            self.eps,
-            self.ui_dict,
-            self.t0,
-            self.ch_sel["idx"],
-            self.win_sec,
-            self.offset,
-            self.mode
-        )
+        # Procesar
+        try:
+            ratio = update_loop(
+                self.buffers, self.fs, self.theta_band, self.gamma_band,
+                self.eps, self.ui_dict, self.t0, self.ch_sel["idx"],
+                self.win_sec, self.offset, self.mode
+            )
+        except Exception as e:
+            # Fallback silencioso si el procesamiento falla en un frame
+            ratio = 0.5
 
-        # 3. Actualizar UI con Metadatos Grabados
-        # Usamos la última fila del chunk para mostrar el estado actual
-        current_row = self.df.iloc[end_idx - 1]
+        # Actualizar Texto Overlay
+        try:
+            row = self.df.iloc[end_idx - 1]
+            state = row.get('game_state', 'N/A')
+            nrg = row.get('energy', 0)
+            mission = row.get('mission_state', '')
+            r_rec = row.get('ratio', 0)
 
-        # Recuperar info guardada
-        game_state = current_row.get('game_state', 'N/A')
-        energy = current_row.get('energy', 0)
-        mission = current_row.get('mission_state', '')
-        ratio_rec = current_row.get('ratio', 0)
+            txt = f"ESTADO: {state} | ENERGÍA: {nrg}\nMISIÓN: {mission}\n"
+            txt += f"RATIO (Grabado): {float(r_rec):.2f} | (Calc): {float(ratio):.2f}"
+            self.lbl_overlay.setText(txt)
+            self.lbl_overlay.adjustSize()
+        except Exception as e:
+            # print(f"Error UI Text: {e}") # Debug
+            pass
 
-        status_text = (
-            f"Juego: {game_state} | Energía: {energy} | Misión: {mission}\n"
-            f"Ratio Grabado: {ratio_rec:.2f} | Ratio Recalculado: {ratio:.2f}"
-        )
-        self.lbl_overlay.setText(status_text)
-        self.lbl_overlay.adjustSize()
-
-        # Avanzar puntero
         self.current_idx = end_idx
 
-        # Actualizar Slider y Tiempo (sin bloquear)
         self.slider.blockSignals(True)
         self.slider.setValue(self.current_idx)
         self.slider.blockSignals(False)
 
-        cur_sec = self.current_idx / self.fs
-        tot_sec = self.data_len / self.fs
-        self.lbl_time.setText(
-            f"{int(cur_sec // 60):02d}:{int(cur_sec % 60):02d} / {int(tot_sec // 60):02d}:{int(tot_sec % 60):02d}")
+        cur = self.current_idx / self.fs
+        tot = self.data_len / self.fs
+        self.lbl_time.setText(f"{int(cur // 60):02d}:{int(cur % 60):02d} / {int(tot // 60):02d}:{int(tot % 60):02d}")
 
-    # --- Controles de Reproducción ---
     def toggle_play(self):
         if self.current_idx >= self.data_len:
-            self.current_idx = 0  # Reiniciar si llegó al final
-            # Limpiar buffers
+            self.current_idx = 0
             self.buffers = [deque([0.0] * self.win_samples, maxlen=self.win_samples) for _ in range(self.n_ch)]
 
         self.playing = not self.playing
         if self.playing:
             self.btn_play.setText("⏸ Pausar")
-            self.btn_play.setStyleSheet("background-color: #FF9800; font-weight: bold; padding: 5px;")
+            self.btn_play.setStyleSheet("background-color: #FF9800; font-weight: bold; padding: 6px;")
             self.timer.start(self.update_ms)
         else:
             self.btn_play.setText("▶ Reproducir")
-            self.btn_play.setStyleSheet("background-color: #4CAF50; font-weight: bold; padding: 5px;")
+            self.btn_play.setStyleSheet("background-color: #4CAF50; font-weight: bold; padding: 6px;")
             self.timer.stop()
 
     def slider_pressed(self):
@@ -274,33 +378,29 @@ class ReplayPlayer(QtWidgets.QWidget):
 
     def slider_moved(self, val):
         self.current_idx = val
-        # Cuando saltamos en el tiempo, necesitamos rellenar los buffers
-        # con los datos anteriores a ese punto para que los filtros no exploten
-        start_fill = max(0, self.current_idx - self.win_samples)
-        fill_chunk = self.raw_data[start_fill: self.current_idx]
-
-        # Rellenar buffers limpiamente
-        if len(fill_chunk) > 0:
-            fill_T = fill_chunk.T
+        start = max(0, self.current_idx - self.win_samples)
+        chunk = self.raw_data[start: self.current_idx]
+        if len(chunk) > 0:
+            chunk_T = chunk.T
             for i in range(self.n_ch):
-                # Limpiar y llenar
                 self.buffers[i].clear()
-                # Si falta data al inicio, rellenar con ceros
-                if len(fill_chunk) < self.win_samples:
-                    self.buffers[i].extend([0.0] * (self.win_samples - len(fill_chunk)))
-                self.buffers[i].extend(fill_T[i])
+                if len(chunk) < self.win_samples:
+                    self.buffers[i].extend([0.0] * (self.win_samples - len(chunk)))
+                self.buffers[i].extend(chunk_T[i])
 
-        # Actualizar un frame estático para ver dónde estamos
-        self.playing = True  # Hack temporal para que update_frame dibuje
+        self.playing = True
         self.update_frame()
         self.playing = False
 
     def update_info_label(self):
-        duration = self.data_len / self.fs
-        self.lbl_info.setText(
-            f"Archivo: {self.n_ch} canales | {self.fs}Hz | "
-            f"Duración: {duration:.1f}s | Modo: {self.mode.upper()}"
-        )
+        dur = self.data_len / self.fs
+        self.lbl_info.setText(f"Archivo: {self.n_ch} canales | {self.fs}Hz | {dur:.1f}s | Modo: {self.mode.upper()}")
+
+    # Evento para asegurar que el overlay se mantenga encima al redimensionar
+    def resizeEvent(self, event):
+        if hasattr(self, 'lbl_overlay'):
+            self.lbl_overlay.raise_()
+        super().resizeEvent(event)
 
 
 if __name__ == '__main__':

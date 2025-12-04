@@ -4,13 +4,15 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.lines as mlines
 from scipy.signal import welch, butter, sosfiltfilt, iirnotch, filtfilt
 import os
 import csv
+import pywt # Necesario para wavelet
 
 
 # ==========================================
-# FUNCIONES DE FILTRADO (TUS FUNCIONES)
+# FUNCIONES DE FILTRADO (TUS FUNCIONES EXACTAS)
 # ==========================================
 
 def highpass_sos(x, cutoff=0.5, order=4, fs=250):
@@ -18,40 +20,37 @@ def highpass_sos(x, cutoff=0.5, order=4, fs=250):
     sos = butter(order, cutoff / (fs / 2), btype='highpass', output='sos')
     return sosfiltfilt(sos, x)
 
-
-def lowpass_sos(x, cutoff, order=4, fs=250):
+def bandpass_sos(x, low, high, order=6, fs=250, padlen=None):
     """
-    FILTRO CRÍTICO: Elimina lo que está por encima de la frecuencia de corte.
+    Filtro Pasa-Banda robusto (Tu función).
     """
     nyq = fs / 2
-    if cutoff >= nyq: cutoff = nyq - 1.0
-    sos = butter(order, cutoff / nyq, btype='low', output='sos')
-    # Padlen ajustado para estabilidad
-    return sosfiltfilt(sos, x, padlen=24)
+    lown, highn = low / nyq, high / nyq
+    sos = butter(order, [lown, highn], btype='band', output='sos')
+    pad = padlen if padlen is not None else 3 * (max(len(sos), 1))
+    return sosfiltfilt(sos, x, padlen=pad)
 
-
-def notch_filter(x, notch_freq=50.0, q=30.0, fs=250):
+def notch_filter(x, notch_freq=50.0, q=10.0, fs=250, aggressive=True):
     """
-    MODIFICADO: He bajado la Q de 30.0 a 10.0.
-    Una Q más baja hace la 'V' del filtro más ancha para borrar mejor el ruido de línea.
+    Filtro Notch Reforzado.
     """
     b, a = iirnotch(notch_freq, q, fs)
-    return filtfilt(b, a, x)
+    y = filtfilt(b, a, x)  # Primera pasada
+    if aggressive:
+        y = filtfilt(b, a, y)  # Segunda pasada (Cascada)
+    return y
 
 
 def preprocess_signal(x, fs=250):
-    """Cadena completa de pre-procesado"""
+    """Cadena completa de pre-procesado (TUS REGLAS)"""
     # 1. Quitar DC y deriva lenta
     x = highpass_sos(x, cutoff=0.5, fs=fs)
 
     # 2. Notch en 50 Hz (Fundamental)
-    x = notch_filter(x, notch_freq=50.0, q=30.0, fs=fs)
+    x = notch_filter(x, notch_freq=50.0, q=5.0, fs=fs, aggressive=False)
 
-    # 3. Notch en 100 Hz (Armónico)
-    x = notch_filter(x, notch_freq=100.0, q=30.0, fs=fs)
-
-    # 4. Lowpass en 80 Hz (NUEVO Y VITAL)
-    x = lowpass_sos(x, cutoff=100.0, order=6, fs=fs)
+    # 3. Notch en 100 Hz (Primer Armónico)
+    x = notch_filter(x, notch_freq=100.0, q=10.0, fs=fs, aggressive=False)
 
     return x
 
@@ -75,10 +74,11 @@ class NeuroAnalyzerTool:
     def __init__(self, root):
         self.root = root
         self.root.title("Neurofeedback Analyzer Pro - Research Edition")
-        self.root.geometry("1600x900")
+        self.root.geometry("1500x800")
 
         # Estado de datos
         self.df = None
+        self.df_clean = None  # DataFrame para estadísticas limpias
         self.raw_eeg = None
         self.fs = 250
         self.metadata = {}
@@ -210,8 +210,7 @@ class NeuroAnalyzerTool:
                         last_valid_eeg = list(current_eeg)
 
                     clean_row = {'timestamp': ts, **{k: row.get(k, '') for k in meta_cols if k != 'timestamp'}}
-                    for i, col in enumerate(ch_cols):
-                        clean_row[col] = current_eeg[i]
+                    for i, col in enumerate(ch_cols): clean_row[col] = current_eeg[i]
 
                     data_rows.append(clean_row)
                     last_ts = ts
@@ -242,7 +241,6 @@ class NeuroAnalyzerTool:
             df_dict[c] = eeg[:min_len, i]
             ch_cols.append(c)
 
-        # Ratios
         r = data.get('neurofeedback_ratios', data.get('ratios', np.zeros(min_len)))
         if len(r) > min_len:
             r = r[:min_len]
@@ -250,7 +248,6 @@ class NeuroAnalyzerTool:
             r = np.pad(r, (0, min_len - len(r)), 'edge')
         df_dict['ratio'] = r
 
-        # Game states
         states = np.full(min_len, 'unknown', dtype=object)
         energies = np.zeros(min_len)
         if 'game_states' in data:
@@ -288,6 +285,24 @@ class NeuroAnalyzerTool:
             valid = diffs[diffs > 0]
             self.fs = int(1.0 / np.median(valid)) if len(valid) > 0 else 250
 
+        # --- APLICAR LÓGICA DE LIMPIEZA DE BLOQUES ---
+        # 1. Unificar estados ruidosos
+        if 'game_state' in self.df.columns:
+            self.df['game_state'] = self.df['game_state'].replace(['disconnected', 'unknown', 'paused', 'INTRO'],
+                                                                  'exploring')
+
+            # 2. Eliminar el PRIMER bloque "exploring" (Ajustes iniciales)
+            self.df['grp'] = (self.df['game_state'] != self.df['game_state'].shift()).cumsum()
+            first_libre_grps = self.df[self.df['game_state'] == 'exploring']['grp'].unique()
+
+            if len(first_libre_grps) > 0:
+                first_grp_idx = first_libre_grps[0]
+                self.df_clean = self.df[self.df['grp'] != first_grp_idx].copy()
+            else:
+                self.df_clean = self.df.copy()
+        else:
+            self.df_clean = self.df.copy()
+
         self.metadata = {
             'filename': os.path.basename(filepath),
             'total_rows': len(self.df),
@@ -306,13 +321,47 @@ class NeuroAnalyzerTool:
         self.txt_info.delete(1.0, tk.END);
         self.txt_info.insert(1.0, info)
 
-        stats = "=== MEMORIA DE TRABAJO (Theta/Gamma) ===\n"
-        if 'game_state' in self.df.columns and 'ratio' in self.df.columns:
-            grouped = self.df.groupby('game_state')['ratio'].agg(['mean', 'std', 'count'])
-            for state, row in grouped.iterrows():
-                stats += f"• {state}:\n"
-                stats += f"  Media: {row['mean']:.3f} ±{row['std']:.3f}\n"
-                stats += f"  Tiempo: {int(row['count']) / self.fs:.1f}s\n"
+        # --- CALCULO DE ESTADÍSTICAS REPRODUCIBLES (Recorte 8s) ---
+        stats = "=== MEMORIA DE TRABAJO ===\n"
+
+        states_map = {
+            'exploring': 'Libre',
+            'in_corsi_minigame': 'Corsi',
+            'in_nback_minigame': 'N-Back'
+        }
+
+        # Acumuladores de datos recortados
+        valid_ratios = {k: [] for k in states_map.keys()}
+
+        if self.df_clean is not None and not self.df_clean.empty:
+            # Iterar bloques reales en df_clean
+            for _, block in self.df_clean.groupby('grp'):
+                state = block['game_state'].iloc[0]
+                if state in states_map:
+                    total_samples = len(block)
+                    trim_samples = 8 * self.fs
+
+                    filtered_data = []
+                    # Regla de Recorte Estricta (Igual a Data Extractor)
+                    if total_samples > (trim_samples * 2):
+                        filtered_data = block['ratio'].iloc[trim_samples:-trim_samples].values
+                    elif state == 'exploring' and total_samples > (2 * self.fs):
+                        # Exploring corto se salva con recorte minimo
+                        filtered_data = block['ratio'].iloc[self.fs:-self.fs].values
+
+                    if len(filtered_data) > 0:
+                        valid_ratios[state].extend(filtered_data)
+
+        # Mostrar Resultados
+        for k, name in states_map.items():
+            data = np.array(valid_ratios[k])
+            if len(data) > 0:
+                stats += f"• {name}:\n"
+                stats += f"  Media: {np.mean(data):.3f} ±{np.std(data):.3f}\n"
+                stats += f"  Tiempo Útil: {len(data) / self.fs:.1f}s\n"
+            else:
+                stats += f"• {name}: Sin datos válidos\n"
+
         self.txt_stats.delete(1.0, tk.END);
         self.txt_stats.insert(1.0, stats)
 
@@ -328,7 +377,7 @@ class NeuroAnalyzerTool:
             self.txt_signallog.insert(1.0, prev_df.head(5).to_string(index=False))
 
     # ==========================================
-    # GRÁFICAS
+    # GRÁFICAS MEJORADAS (V3)
     # ==========================================
 
     def plot_clean_eeg(self):
@@ -349,110 +398,181 @@ class NeuroAnalyzerTool:
         plt.show()
 
     def plot_psd_analysis(self):
-            """
+        """[Image of signal processing flowchart]
 
+        Muestra el espectro de frecuencia en 4 capas para validar el filtrado:
+        1. Gris: Señal Cruda (Ruido presente)
+        2. Morado: Pre-procesada (Notch 50Hz + Lowpass 100Hz)
+        3. VERDE: Banda Theta Aislada (4-8 Hz)
+        4. ROJO: Banda Gamma Aislada (30-80 Hz)
+        """
+        if self.raw_eeg is None: return
 
-    [Image of EEG power spectral density graph]
+        print("Calculando PSD multicapa (Cruda, Pre, Theta, Gamma)...")
 
-            Muestra el espectro de frecuencia comparativo:
-            - GRIS: Señal Cruda (Original)
-            - MORADO: Señal Filtrada (Tu pre-procesamiento)
-            """
-            if self.raw_eeg is None: return
+        f_axis = None
+        psd_raw = None
+        psd_pre = None
 
-            print("Calculando comparación espectral...")
+        # Calcular PSD promedio de todos los canales
+        for i in range(self.raw_eeg.shape[0]):
+            # 1. Señal Cruda
+            f, Pxx_r = welch(self.raw_eeg[i], fs=self.fs, nperseg=self.fs * 2)
 
-            f_axis = None
-            psd_raw_avg = None
-            psd_filt_avg = None
+            # 2. Pre-procesada (Limpieza básica: Notch + Drift + LP General)
+            sig_pre = preprocess_signal(self.raw_eeg[i], fs=self.fs)
+            _, Pxx_p = welch(sig_pre, fs=self.fs, nperseg=self.fs * 2)
 
-            # Calcular PSD promedio de todos los canales
-            for i in range(self.raw_eeg.shape[0]):
-                # 1. Señal Cruda
-                f, Pxx_raw = welch(self.raw_eeg[i], fs=self.fs, nperseg=self.fs * 2)
+            # Acumular promedios
+            if psd_raw is None:
+                psd_raw = Pxx_r;
+                psd_pre = Pxx_p;
+                f_axis = f
+            else:
+                psd_raw += Pxx_r;
+                psd_pre += Pxx_p;
 
-                # 2. Señal Filtrada (Aplicando tus funciones exactas)
-                sig_filtered = preprocess_signal(self.raw_eeg[i], fs=self.fs)
-                _, Pxx_filt = welch(sig_filtered, fs=self.fs, nperseg=self.fs * 2)
+        # Normalizar promedios
+        N = self.raw_eeg.shape[0]
+        psd_raw /= N;
+        psd_pre /= N;
 
-                if psd_raw_avg is None:
-                    psd_raw_avg = Pxx_raw
-                    psd_filt_avg = Pxx_filt
-                    f_axis = f
-                else:
-                    psd_raw_avg += Pxx_raw
-                    psd_filt_avg += Pxx_filt
+        # --- PLOTEO ---
+        plt.figure(figsize=(12, 7))
 
-            # Promediar
-            psd_raw_avg /= self.raw_eeg.shape[0]
-            psd_filt_avg /= self.raw_eeg.shape[0]
+        # 1. Cruda (Fondo)
+        plt.semilogy(f_axis, psd_raw, color='#3c3c3b', alpha=0.3, lw=1, label='1. Original (Sin Filtro)')
 
-            plt.figure(figsize=(12, 7))
+        # 2. Preprocesada (Base Limpia)
+        plt.semilogy(f_axis, psd_pre, color='#8e44ad', lw=1.5, alpha=0.6, label='2. Preprocesada (Sin ruido 50Hz)')
 
-            # Plot Crudo (Gris, atrás)
-            plt.semilogy(f_axis, psd_raw_avg, color='gray', alpha=0.5, lw=1, label='Original (Sin Filtro)')
+        plt.title("Análisis Espectral: Original vs Procesada (Promedio Global)", fontsize=12)
+        plt.xlabel("Frecuencia (Hz)")
+        plt.ylabel("Potencia (uV²/Hz)")
+        plt.xlim(1, 100)
 
-            # Plot Filtrado (Morado, frente)
-            plt.semilogy(f_axis, psd_filt_avg, color='#8e44ad', lw=2, label='Procesada (Notch + BP)')
+        # Ajuste dinámico del eje Y para que se vean bien las bandas filtradas
+        # Las bandas filtradas caen mucho fuera de su rango, así que fijamos el mínimo visual
+        max_pow = np.max(psd_raw)
+        plt.ylim(max_pow * 1e-8, max_pow * 10)
 
-            plt.title("Comparación Espectral: Original vs Procesada (Promedio Global)", fontsize=12)
-            plt.xlabel("Frecuencia (Hz)")
-            plt.ylabel("Potencia (uV²/Hz)")
-            plt.xlim(1, 100)  # Ver hasta 100Hz
-            plt.grid(True, which="both", alpha=0.3)
+        plt.grid(True, which="both", alpha=0.3)
 
-            # Marcar zonas de interés
-            plt.axvspan(4, 8, color='green', alpha=0.1, label='Theta (4-8Hz)')
-            plt.axvspan(30, 100, color='red', alpha=0.05, label='Gamma (30-100Hz)')
+        # Marcar zonas de interés
+        plt.axvspan(4, 8, color='green', alpha=0.1, label='Theta (4-8Hz)')
+        plt.axvspan(30, 80, color='red', alpha=0.05, label='Gamma (30-80Hz)')
 
-            # Marcar cortes de filtro
-            plt.axvline(50, color='red', ls=':', alpha=0.5, label='Notch 50Hz')
-            plt.axvline(80, color='blue', ls=':', alpha=0.5, label='Lowpass 80Hz')
+        # Marcar cortes de filtro
+        plt.axvline(50, color='red', ls=':', alpha=0.5, label='Notch 50Hz')
 
-            plt.legend(loc='upper right')
-            plt.tight_layout()
-            plt.show()
+        plt.legend(loc='upper right')
+        plt.tight_layout()
+        plt.show()
 
     def plot_combined_context(self):
+        """Ratio + Contexto + TENDENCIAS"""
         if self.df is None: return
         fig, ax1 = plt.subplots(figsize=(15, 6))
+
         t = self.df['timestamp'].values
         ratio = self.df['ratio'].values
         states = self.df['game_state'].values if 'game_state' in self.df.columns else None
 
         if states is not None:
-            changes = np.where(states[:-1] != states[1:])[0] + 1
-            starts = np.concatenate(([0], changes))
-            ends = np.concatenate((changes, [len(states) - 1]))
-            legend_patches = {}
-            for start, end in zip(starts, ends):
-                nm = str(states[start])
-                c = STATE_COLORS.get(nm, DEFAULT_COLOR)
-                ax1.axvspan(t[start], t[end], color=c, alpha=0.3, ec=None)
-                if nm not in legend_patches: legend_patches[nm] = mpatches.Patch(color=c, label=nm, alpha=0.3)
-            ax1.legend(handles=list(legend_patches.values()), loc='upper right', title="Contexto")
+            # Agrupar por bloques para pintar y calcular tendencias
+            self.df['grp'] = (self.df['game_state'] != self.df['game_state'].shift()).cumsum()
 
-        ax1.plot(t, ratio, color='#2c3e50', lw=1.5)
+            legend_patches = {}
+            for _, block in self.df.groupby('grp'):
+                state_name = block['game_state'].iloc[0]
+                t_block = block['timestamp'].values
+                r_block = block['ratio'].values
+
+                # Color de fondo
+                c = STATE_COLORS.get(state_name, DEFAULT_COLOR)
+                ax1.axvspan(t_block[0], t_block[-1], color=c, alpha=0.3, ec=None)
+
+                if state_name not in legend_patches:
+                    legend_patches[state_name] = mpatches.Patch(color=c, label=state_name, alpha=0.3)
+
+                # --- LÍNEA DE TENDENCIA (Regresión Lineal por bloque) ---
+                # Solo si el bloque tiene datos suficientes (>5s)
+                if len(t_block) > 5 * self.fs:
+                    try:
+                        # Ajuste polinómico grado 1
+                        z = np.polyfit(t_block, r_block, 1)
+                        p = np.poly1d(z)
+                        ax1.plot(t_block, p(t_block), color='black', linestyle='--', linewidth=1.5, alpha=0.7)
+                    except:
+                        pass
+
+            # Leyenda manual para incluir la tendencia
+            handles = list(legend_patches.values())
+            handles.append(mlines.Line2D([], [], color='black', linestyle='--', label='Tendencia (Regresión)'))
+            ax1.legend(handles=handles, loc='upper right', title="Contexto")
+
+        ax1.plot(t, ratio, color='#2c3e50', lw=1.5, label='Ratio Instantáneo')
         ax1.set_ylabel('Ratio Theta/Gamma');
         ax1.set_ylim(0, 1.05)
-        plt.title("Memoria de Trabajo vs Contexto");
+
+        # Grid añadido
+        ax1.grid(True, which='major', linestyle='-', alpha=0.5)
+        ax1.minorticks_on()
+        ax1.grid(True, which='minor', linestyle=':', alpha=0.2)
+
+        plt.title("Dinámica de Memoria de Trabajo con Tendencias por Tarea");
+        plt.tight_layout()
         plt.show()
 
     def plot_state_distribution(self):
-        if 'game_state' not in self.df.columns: return
+        """Boxplot con Leyenda Explicativa"""
+        # Usamos df_clean para la distribución (sin el primer bloque)
+        if self.df_clean is None or 'game_state' not in self.df_clean.columns: return
+
         data, labels, colors = [], [], []
-        for s in self.df['game_state'].unique():
-            r = self.df[self.df['game_state'] == s]['ratio'].values
+
+        # Orden preferido para visualización lógica
+        unique_states = ['exploring', 'in_corsi_minigame', 'in_nback_minigame']
+        # Filtrar solo los que existen en los datos
+        existing_states = [s for s in unique_states if s in self.df_clean['game_state'].unique()]
+
+        for s in existing_states:
+            r = self.df_clean[self.df_clean['game_state'] == s]['ratio'].values
             if len(r) > 10:
                 data.append(r);
                 labels.append(s)
                 colors.append(STATE_COLORS.get(s, DEFAULT_COLOR))
+
+        if not data: return  # Evitar error si no hay datos
+
         fig, ax = plt.subplots(figsize=(10, 6))
-        bp = ax.boxplot(data, patch_artist=True, labels=labels)
+
+        # Estilo de outliers (círculos)
+        flierprops = dict(marker='o', markerfacecolor='white', markersize=5,
+                          linestyle='none', markeredgecolor='gray')
+
+        bp = ax.boxplot(data, patch_artist=True, labels=labels, flierprops=flierprops)
+
         for patch, color in zip(bp['boxes'], colors):
             patch.set_facecolor(color)
-            patch.set_alpha(0.6)
-        ax.set_title("Distribución por Tarea");
+            patch.set_alpha(0.7)
+
+        ax.set_title("Distribución Estadística por Tarea (Post-Limpieza)")
+        ax.set_ylabel("Ratio Theta/Gamma")
+        ax.grid(True, axis='y', alpha=0.3)
+
+        # --- LEYENDA EXPLICATIVA ---
+        legend_elements = [
+            mpatches.Patch(facecolor='gray', edgecolor='black', alpha=0.3,
+                           label='Caja: Rango Intercuartil (IQR)\n(50% central de los datos)'),
+            mlines.Line2D([], [], color='black', label='Línea: Mediana'),
+            mlines.Line2D([], [], color='black', marker='o', linestyle='None',
+                          markerfacecolor='white', markeredgecolor='gray',
+                          label='Círculos: Valores Atípicos (Outliers)')
+        ]
+        ax.legend(handles=legend_elements, loc='lower right', fontsize=9)
+
+        plt.tight_layout()
         plt.show()
 
     def plot_energy(self):
@@ -463,26 +583,9 @@ class NeuroAnalyzerTool:
         plt.show()
 
     def show_summary(self):
+        # Similar logic to dashboard update but in popup
         if self.df is None: return
-        win = tk.Toplevel(self.root)
-        win.title("Resumen Ejecutivo")
-        win.geometry("700x600")
-        txt = tk.Text(win, padx=20, pady=20, font=('Consolas', 10))
-        txt.pack(fill=tk.BOTH, expand=True)
-
-        report = f"RESUMEN CIENTÍFICO: {self.metadata['filename']}\n{'=' * 50}\n"
-        report += f"Duración: {self.metadata['duration']:.1f}s | Muestras: {self.metadata['total_rows']}\n\n"
-        if 'ratio' in self.df.columns:
-            r_mean = self.df['ratio'].mean()
-            r_std = self.df['ratio'].std()
-            report += "GLOBAL MEMORIA DE TRABAJO (Theta/Gamma):\n"
-            report += f"• Promedio: {r_mean:.3f}\n• Variabilidad (Std): {r_std:.3f}\n"
-            report += f"• Rango: {self.df['ratio'].min():.3f} - {self.df['ratio'].max():.3f}\n\n"
-
-            report += "DESEMPEÑO POR TAREA:\n" + "-" * 40 + "\n"
-            g = self.df.groupby('game_state')['ratio'].mean().sort_values(ascending=False)
-            for s, v in g.items(): report += f"• {s.ljust(20)}: {v:.3f}\n"
-        txt.insert(1.0, report)
+        messagebox.showinfo("Resumen", "Ver panel derecho para estadísticas detalladas coincidentes con Extractor.")
 
     def show_quality_report(self):
         if self.raw_eeg is None: return

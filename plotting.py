@@ -214,7 +214,7 @@ def create_ui(N_CH, WIN_SEC, OFFSET, FS):
     # Gráfico Señal filtrada
     # =========================
     p_filt = graph_area.addPlot(row=2, col=0)
-    p_filt.setTitle("Señal filtrada (Canal 1)")
+    p_filt.setTitle("Señal filtrada (Canal Seleccionado)")
     p_filt.setLabel('bottom', 'Tiempo', units='s')
     p_filt.setLabel('left', 'Amplitud (µV)')
     p_filt.showGrid(x=True, y=True)
@@ -242,7 +242,7 @@ def create_ui(N_CH, WIN_SEC, OFFSET, FS):
     # Gráfico Wavelet
     # =========================
     p_cwt = graph_area.addPlot(row=2, col=1)
-    p_cwt.setTitle("Espectrograma Wavelet (Canal 1)")
+    p_cwt.setTitle("Espectrograma Wavelet (Canal Seleccionado)")
     p_cwt.setLabel('bottom','Tiempo', units='s')
     p_cwt.setLabel('left','Frecuencia', units='Hz')
     img_cwt = pg.ImageItem()

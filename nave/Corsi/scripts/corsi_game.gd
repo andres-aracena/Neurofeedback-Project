@@ -43,7 +43,7 @@ const BASE_ENERGY_WRONG := -6
 # [AJUSTE - RECOMPENSA NEURO]
 # Multiplicador de bonificación. Si es 2.0, un estado mental perfecto
 # puede duplicar la energía ganada en ese turno.
-const NEURO_BONUS_MULTIPLIER := 2.0
+const NEURO_BONUS_MULTIPLIER := 1.0
 
 # Umbrales para la batería final
 const CRITICAL_ENERGY := 30

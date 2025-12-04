@@ -43,7 +43,7 @@ const BASE_ENERGY_WRONG := -5
 # [AJUSTE - IMPACTO NEURO]
 # Multiplicador de bonificación. 
 # 2.0 = El estado mental puede duplicar la energía ganada.
-const NEURO_BONUS_MULTIPLIER := 2.0
+const NEURO_BONUS_MULTIPLIER := 1.0
 
 # Umbrales para la batería final
 const CRITICAL_ENERGY := 30

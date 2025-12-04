@@ -144,8 +144,7 @@ FS, N_CH, WIN_SEC, MODE, INITIALS = cfg["FS"], cfg["N_CH"], cfg["WIN_SEC"], cfg[
 UPDATE_MS = 80
 OFFSET = 250
 THETA_BAND = (4.0, 8.0)
-# Mantenemos 100Hz para dar espacio a la lógica de "Split Gamma" en processing.py
-GAMMA_BAND = (30.0, 100.0)
+GAMMA_BAND = (30.0, 80.0)
 EPS = 1e-12
 
 # =========================

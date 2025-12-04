@@ -42,7 +42,7 @@ ratio_smoother = RatioSmoother(history_size=25)
 # =========================
 # WAVELET TRANSFORM
 # =========================
-def compute_wavelet(raw_win, fs, freqs, wavelet='cmor1.5-1.0'):
+def compute_wavelet(raw_win, fs, freqs, wavelet='cmor2.0-1.0'):
     """Calcula la potencia espectral usando CWT Morlet."""
     scales = pywt.central_frequency(wavelet) * fs / freqs
     coeffs, _ = pywt.cwt(raw_win, scales, wavelet, sampling_period=1 / fs)
@@ -105,9 +105,6 @@ def update_loop(buffers, fs, theta_band, gamma_band, eps, ui, t0, ch_sel, win_se
     # --- 2. VISUALIZACIÓN SEÑAL CRUDA ---
     sig_disp = raw_data_matrix[ch_sel]
     ui['curve_raw'].setData(t_axis, sig_disp)
-    # Escala fija tolerante para ver saturación
-    if len(sig_disp) > 0:
-        ui['p_raw'].setYRange(-200, 200)
 
     # Arrays para acumular resultados por canal
     theta_pows, gamma_pows, raw_ratios = [], [], []
